@@ -1,16 +1,19 @@
 import torch
+from torch.utils.data import DataLoader
 import numpy as np
 from torch import nn
 
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.01
+TRAIN_EPOCHS = 250
 
 class MLP(nn.Module):
     def __init__(self, input_features: int, hidden: int, output: int) -> None:
         super().__init__()
-        self.lin1 = nn.Linear(input_features, hidden)
-        self.lin2 = nn.Linear(hidden, output)
+        self.lin1 = nn.Linear(input_features, 2*hidden)
+        self.lin2 = nn.Linear(2*hidden, hidden)
+        self.lin3 = nn.Linear(hidden, output)
         
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=0.2)
         self.softmax = nn.Softmax(dim=1)
         
         
@@ -18,35 +21,48 @@ class MLP(nn.Module):
         x = self.lin1(data).relu()
         x = self.dropout(x)
         
-        x = self.lin2(x)
+        x = self.lin2(x).relu()
+        x = self.dropout(x)
+        
+        x = self.lin3(x)
         
         x = self.softmax(x)
         
         return x
 
     
-def train(model: nn.Module, data: torch.Tensor, target: torch.Tensor) -> None:
-    loss_criterion = nn.CrossEntropyLoss()
+def train(model: nn.Module, data_loader: DataLoader) -> None:
+    _, class_counts = np.unique(data_loader.dataset.target.numpy(), return_counts=True)
+    class_weights = torch.tensor(
+        [1 - c/len(data_loader.dataset.target) for c in class_counts]
+    ).type(torch.float32)
+    
+    loss_criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=5e-4)
     model.train()
-
-    for e in range(100):
+    accs = []
+    
+    for i, batch in enumerate(data_loader):
+        data, target = batch
+        
         optimizer.zero_grad()
         out = model(data)
+        
         loss = loss_criterion(out, target)
         loss.backward()
         optimizer.step()
         
         pred = torch.argmax(out, dim=1)
-        acc = (pred == target).sum().item() / len(target)
+        batch_acc = (pred == target).sum().item() / len(target)
+        accs.append(batch_acc)
         
-        if e % 10 == 0:
-            print(f'Epoch - {e} | Loss - {loss} | Accuracy - {acc:.3f}')
+        if i % 2000 == 0:
+            print(f'Batch {i}: Acc - {batch_acc} [AMONG TARGETS]')
 
 
 def test(model: nn.Module, data: torch.Tensor, target: torch.Tensor) -> float:
     model.eval()
-    out = model(data)
+    out = model(data.type(torch.float32))
     
     pred = torch.argmax(out, dim=1)
     acc = (pred == target).sum().item() / len(target)
