@@ -4,7 +4,6 @@ import numpy as np
 from torch import nn
 
 LEARNING_RATE = 0.01
-TRAIN_EPOCHS = 250
 
 class MLP(nn.Module):
     def __init__(self, input_features: int, hidden: int, output: int) -> None:
@@ -40,7 +39,6 @@ def train(model: nn.Module, data_loader: DataLoader) -> None:
     loss_criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=5e-4)
     model.train()
-    accs = []
     
     for i, batch in enumerate(data_loader):
         data, target = batch
@@ -51,13 +49,6 @@ def train(model: nn.Module, data_loader: DataLoader) -> None:
         loss = loss_criterion(out, target)
         loss.backward()
         optimizer.step()
-        
-        pred = torch.argmax(out, dim=1)
-        batch_acc = (pred == target).sum().item() / len(target)
-        accs.append(batch_acc)
-        
-        if i % 2000 == 0:
-            print(f'Batch {i}: Acc - {batch_acc} [AMONG TARGETS]')
 
 
 def test(model: nn.Module, data: torch.Tensor, target: torch.Tensor) -> float:
