@@ -6,11 +6,12 @@ from data_utils import NPFL129_Dataset, Encoder, DIA_TO_NODIA, TextData, LETTERS
 from mlp import MLP, train, test
 
 MODEL_FILE = './model.pt'
-N_GRAMS = 9
-MLP_HIDDEN = 128
+WINDOW_SIZE = 9
+MLP_HIDDEN = 64
 DIA_CLASSES = 3
+
 dataset = NPFL129_Dataset()
-data_encoder = Encoder(N_GRAMS)
+data_encoder = Encoder(WINDOW_SIZE)
 RESTORE_MAP = {
     1: {c.translate(DIA_TO_NODIA): c for c in data_encoder.acute + data_encoder.acute.upper()},
     2: {c.translate(DIA_TO_NODIA): c for c in data_encoder.caron + data_encoder.caron.upper()}
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     test_data, test_target = torch.from_numpy(t_data), torch.from_numpy(t_target)
 
     # Modelling
-    model = MLP(N_GRAMS * data_encoder.num_char, MLP_HIDDEN, DIA_CLASSES)
+    model = MLP(WINDOW_SIZE * data_encoder.num_char, MLP_HIDDEN, DIA_CLASSES)
     if os.path.exists(MODEL_FILE):
         model.load_state_dict(torch.load(MODEL_FILE))
     else:
@@ -65,7 +66,7 @@ if __name__ == '__main__':
             
             print(f'VALIDATION ACCURACY - {test_eval:.2f}')
 
-        # model.load_state_dict(best_state)
+        model.load_state_dict(best_state)
         torch.save(model.state_dict(), MODEL_FILE)
 
     # Restoring
